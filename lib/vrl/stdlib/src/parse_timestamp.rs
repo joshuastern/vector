@@ -58,15 +58,17 @@ impl ParseTimestampFn {
 impl Expression for ParseTimestampFn {
     fn resolve(&self, ctx: &mut Context) -> Resolved {
         let value = self.value.resolve(ctx)?;
-        let format = self.format.resolve(ctx);
 
         match value {
-            Value::Bytes(v) => format
-                .map(|v| format!("timestamp|{}", String::from_utf8_lossy(&v.unwrap_bytes())))?
+            Value::Bytes(v) => {
+                let bytes = self.format.resolve(ctx)?;
+                let format = bytes.try_bytes_utf8_lossy()?;
+                format!("timestamp|{}", format)
                 .parse::<Conversion>()
                 .map_err(|e| format!("{}", e))?
                 .convert(v)
-                .map_err(|e| e.to_string().into()),
+                .map_err(|e| e.to_string().into())
+            },
             Value::Timestamp(_) => Ok(value),
             _ => Err("unable to convert value to timestamp".into()),
         }
